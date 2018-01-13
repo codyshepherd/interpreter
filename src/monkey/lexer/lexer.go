@@ -66,3 +66,7 @@ func (l *Lexer) NextToken() token.Token {
 	l.readChar()
 	return tok
 }
+
+func newToken(tokenType token.TokenType, ch rune) token.Token {
+	return token.Token{Type: tokenType, Literal: string(ch)}
+}
