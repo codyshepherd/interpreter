@@ -8,7 +8,10 @@ Following the Thorsten Ball book
 
 package lexer
 
-import "monkey/token"
+import (
+	"monkey/token"
+	"unicode"
+)
 
 type Lexer struct {
 	input        string
@@ -41,6 +44,8 @@ func (l *Lexer) readChar() {
 func (l *Lexer) NextToken() token.Token {
 	var tok token.Token
 
+	l.skipWhitespace()
+
 	switch l.ch {
 	case '=':
 		tok = newToken(token.ASSIGN, l.ch)
@@ -61,12 +66,67 @@ func (l *Lexer) NextToken() token.Token {
 	case 0:
 		tok.Literal = ""
 		tok.Type = token.EOF
+	default:
+		if isLetter(l.ch) { // case to check for identifier string
+			tok.Literal = l.readIdentifier()
+			tok.Type = token.LookupIdent(tok.Literal)
+			return tok // readIdentifier calls readChar() so we want to early return here to avoid an extra call to readChar()
+		} else if isDigit(l.ch) {
+			tok.Type = token.INT
+			tok.Literal = l.readNumber()
+			return tok
+		} else { // case to handle unknown input
+			tok = newToken(token.ILLEGAL, l.ch)
+		}
 	}
 
 	l.readChar()
 	return tok
 }
 
+// helper for instantiating new Token object
 func newToken(tokenType token.TokenType, ch rune) token.Token {
 	return token.Token{Type: tokenType, Literal: string(ch)}
+}
+
+// reads an identifier string and advances lexer's positions until it encounters
+// a non-letter character (rune)
+func (l *Lexer) readIdentifier() string {
+	position := l.position
+	for isLetter(l.ch) {
+		l.readChar()
+	}
+	return string(l.runes[position:l.position])
+}
+
+// checks whether its argument is a letter
+// changing this function will have a large impact on parsable language
+// Note: gonna allow unicode symbols for now and see where that takes us
+func isLetter(ch rune) bool {
+	return 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || ch == '_' || unicode.IsSymbol(ch)
+}
+
+// eats up whitespace by calling readChar on spaces, tabs, or newlines
+// replacing guard from book with a call to unicode library, since I'm importing it already
+func (l *Lexer) skipWhitespace() {
+	//for l.ch == ' ' || l.ch == '\t' || l.ch == '\n' || l.ch == '\r' {
+	for unicode.IsSpace(l.ch) {
+		l.readChar()
+	}
+}
+
+// same as readIdentifier except for numbers instead of strings
+func (l *Lexer) readNumber() string {
+	position := l.position
+	for isDigit(l.ch) {
+		l.readChar()
+	}
+	return string(l.runes[position:l.position])
+}
+
+// This is just a wrapper for the unicode call... extra function overhead but might allow
+// for customization later
+func isDigit(ch rune) bool {
+	//return '0' <= ch && ch <= '9'
+	return unicode.IsDigit(ch)
 }
